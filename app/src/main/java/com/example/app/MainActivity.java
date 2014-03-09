@@ -1,10 +1,8 @@
 package com.example.app;
 
 import android.annotation.TargetApi;
-import android.content.Context;
 import android.location.Location;
 import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.StrictMode;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
@@ -18,9 +16,11 @@ import android.view.MenuItem;
 import android.view.ViewGroup;
 import android.os.Build;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -38,10 +38,14 @@ import java.util.List;
 
 public class MainActivity extends ActionBarActivity{
 
-    private TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror;
-    private EditText hostService;
-    private RadioButton bstatus;
+    TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror;
+    EditText hostService;
+    RadioButton bstatus;
+    Button startButton;
+    // GPSTracker class
+    GPSTracker gps;
 
+    LocationListener locationListener;
 
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
     @Override
@@ -52,79 +56,56 @@ public class MainActivity extends ActionBarActivity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        LocationManager lm =(LocationManager)getSystemService(Context.LOCATION_SERVICE);
-
-        LocationListener ll = new myLocationListener();
-        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, ll);
-        Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        setLastLocationText(location);
-
-        if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.container, new PlaceholderFragment())
-                    .commit();
-        }
-    }
-    class myLocationListener implements LocationListener{
-        public void onLocationChanged(Location location) {
-            if(location != null){
-                double pLong = location.getLongitude();
-                double plat = location.getLatitude();
-                double palt = location.getAltitude();
-                float pre = location.getAccuracy();
-                String pro = location.getProvider();
-                long tiempo = location.getTime();
-                setLocationText(plat, pLong, palt, pre, pro, tiempo);
-                sendData(plat, pLong, palt, pre, pro, tiempo);
-            }
-        }
-        public void onStatusChanged(String provider, int status, Bundle extras) {
-            logError("Provider "+provider+" Status: " + status);
-        }
-        public void onProviderEnabled(String provider) {
-            bstatus = (RadioButton)findViewById(R.id.status);
-            bstatus.setChecked(true);
-        }
-        public void onProviderDisabled(String provider) {
-            bstatus = (RadioButton)findViewById(R.id.status);
-            bstatus.setChecked(false);
-        }
-
-    }
-    //@Override
-    public void onClick(View view) {
-        if (view.getId() == findViewById(R.id.button).getId()){
-            setLocationText(0,0,0,0,"",0);
-            sendData(0,0,0,0,"",0);
-        }
-    }
-
-    public void setLastLocationText(Location location){
-        if(location != null){
-            double pLong = location.getLongitude();
-            double plat = location.getLatitude();
-            double palt = location.getAltitude();
-            float pre = location.getAccuracy();
-            String pro = location.getProvider();
-            long tiempo = location.getTime();
-            //setLocationText(plat, pLong, palt, pre, pro, tiempo);
-           // logError(pro);
-        }
-    }
-    public void setLocationText(double plat,double plng,double palt,float pre,String prov,long tiempo){
         txtlat = (TextView)findViewById(R.id.textView3);
         txtlng = (TextView)findViewById(R.id.textView4);
         txtalt = (TextView)findViewById(R.id.textView9);
         txtpre = (TextView)findViewById(R.id.textView10);
         txtpro = (TextView)findViewById(R.id.textView12);
         txttiempo = (TextView)findViewById(R.id.textView11);
+        bstatus = (RadioButton)findViewById(R.id.status);
+        startButton = (Button)findViewById(R.id.button);
 
-        txtlat.setText(Double.toString(plat));
-        txtlng.setText(Double.toString(plng));
-        txtalt.setText(Double.toString(palt));
+        // create class object
+        gps = new GPSTracker(MainActivity.this);
+        // check if GPS enabled
+        if(gps.canGetLocation()){
+            double latitude = gps.getLatitude();
+            double longitude = gps.getLongitude();
+            setLocationText(latitude,longitude,0,0,"gps",0);
+            // \n is for new line
+            Toast.makeText(getApplicationContext(), "Your Location is - \nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
+        }else{
+            gps.showSettingsAlert();
+        }
+
+
+    }
+    public void onClick(View view) {
+        if (view.getId() == startButton.getId()){
+            bstatus.setChecked(true);
+            locationListener = new GPSTracker(MainActivity.this) {
+                @Override
+                public void onLocationChanged(Location location) {
+                    setLocationText(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
+                    sendData(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
+                }
+                @Override
+                public void onStatusChanged(String s, int i, Bundle bundle) {}
+                @Override
+                public void onProviderEnabled(String s) {}
+                @Override
+                public void onProviderDisabled(String s) {}
+            };
+        }
+    }
+
+    public void setLocationText(double pLat,double pLng,double pAlt,float pre,String prov,long lTime){
+        txtlat.setText(Double.toString(pLat));
+        txtlng.setText(Double.toString(pLng));
+        txtalt.setText(Double.toString(pAlt));
         txtpre.setText(Float.toString(pre));
         txtpro.setText(prov);
-        txttiempo.setText(Long.toString(tiempo));
+        txttiempo.setText(Long.toString(lTime));
     }
 
     public void logError(String er) {
@@ -134,7 +115,6 @@ public class MainActivity extends ActionBarActivity{
 
     public void sendData(double plat,double plng,double palt,float pre,String prov,long tiempo){
         // Create a new HttpClient and Post Header
-
         hostService = (EditText)findViewById(R.id.editText);
         HttpClient httpclient = new DefaultHttpClient();
         HttpPost httppost = new HttpPost(String.valueOf(hostService.getText()));
@@ -154,11 +134,11 @@ public class MainActivity extends ActionBarActivity{
             // writing error to Log
             e.printStackTrace();
         }
-
         // Making HTTP Request
         try {
             HttpResponse response = httpclient.execute(httppost);
             // writing response to log
+            Toast.makeText(getApplicationContext(), "Enviando", Toast.LENGTH_LONG).show();
             logError(response.toString());
             Log.d("Http Response:", response.toString());
         } catch (ClientProtocolException e) {
@@ -167,13 +147,11 @@ public class MainActivity extends ActionBarActivity{
         } catch (IOException e) {
             // writing exception to log
             e.printStackTrace();
-
         }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
