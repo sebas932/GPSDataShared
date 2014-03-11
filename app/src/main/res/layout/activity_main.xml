@@ -23,16 +23,15 @@
         android:text="Start "
         android:id="@+id/button"
         android:onClick="onClick"
-        android:layout_below="@+id/textView8"
-        android:layout_alignParentLeft="true"
-        android:layout_marginTop="27dp" />
+        android:layout_centerVertical="true"
+        android:layout_alignParentLeft="true" />
 
     <EditText
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/editText"
         android:hint="Host"
-        android:text="http://192.168.1.51/TrafficSigns/api.php"
+        android:text="http://guybrush.info/TrafficSigns/api.php"
         android:textSize="6pt"
         android:textIsSelectable="false"
         android:layout_alignParentTop="true"
@@ -152,5 +151,52 @@
         android:enabled="false"
         android:layout_alignTop="@+id/button"
         android:layout_alignRight="@+id/editText" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Stop"
+        android:id="@+id/button2"
+        android:layout_alignTop="@+id/button"
+        android:layout_toRightOf="@+id/button" />
+
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="GPS      "
+        android:id="@+id/switch1"
+        android:checked="false"
+        android:enabled="false"
+        android:layout_marginTop="36dp"
+        android:layout_below="@+id/textView13"
+        android:layout_alignParentLeft="true" />
+
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Network"
+        android:id="@+id/switch2"
+        android:checked="false"
+        android:enabled="false"
+        android:layout_below="@+id/switch1"
+        android:layout_alignParentLeft="true" />
+
+    <Switch
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="http"
+        android:id="@+id/switch3"
+        android:checked="false"
+        android:layout_below="@+id/switch2"
+        android:layout_alignParentLeft="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="0"
+        android:id="@+id/textView13"
+        android:layout_below="@+id/status"
+        android:layout_alignParentRight="true" />
 
 </RelativeLayout>

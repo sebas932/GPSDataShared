@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,10 +39,12 @@ import java.util.List;
 
 public class MainActivity extends ActionBarActivity{
 
-    TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror;
+    TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror,txtCount;
     EditText hostService;
     RadioButton bstatus;
-    Button startButton;
+    Button startButton,stopButton;
+    Switch sgps,snet,shttp;
+    int count = 0;
     // GPSTracker class
     GPSTracker gps;
 
@@ -61,12 +64,20 @@ public class MainActivity extends ActionBarActivity{
         txtalt = (TextView)findViewById(R.id.textView9);
         txtpre = (TextView)findViewById(R.id.textView10);
         txtpro = (TextView)findViewById(R.id.textView12);
+        txtCount = (TextView)findViewById(R.id.textView13);
         txttiempo = (TextView)findViewById(R.id.textView11);
         bstatus = (RadioButton)findViewById(R.id.status);
         startButton = (Button)findViewById(R.id.button);
+        stopButton = (Button)findViewById(R.id.button2);
+        sgps = (Switch)findViewById(R.id.switch1);
+        snet = (Switch)findViewById(R.id.switch2);
+        shttp = (Switch)findViewById(R.id.switch3);
 
         // create class object
         gps = new GPSTracker(MainActivity.this);
+
+        sgps.setChecked(gps.isGPSEnabled);
+        snet.setChecked(gps.isNetworkEnabled);
         // check if GPS enabled
         if(gps.canGetLocation()){
             double latitude = gps.getLatitude();
@@ -82,20 +93,30 @@ public class MainActivity extends ActionBarActivity{
     }
     public void onClick(View view) {
         if (view.getId() == startButton.getId()){
-            bstatus.setChecked(true);
-            locationListener = new GPSTracker(MainActivity.this) {
-                @Override
-                public void onLocationChanged(Location location) {
-                    setLocationText(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
-                    sendData(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
-                }
-                @Override
-                public void onStatusChanged(String s, int i, Bundle bundle) {}
-                @Override
-                public void onProviderEnabled(String s) {}
-                @Override
-                public void onProviderDisabled(String s) {}
-            };
+
+            if(gps.canGetLocation()){
+                bstatus.setChecked(true);
+                locationListener = new GPSTracker(MainActivity.this) {
+                    @Override
+                    public void onLocationChanged(Location location) {
+                        setLocationText(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
+                        if(shttp.isChecked())sendData(location.getLatitude(),location.getLongitude(),location.getAltitude(),location.getAccuracy(),location.getProvider(),location.getTime());
+                    }
+                    @Override
+                    public void onStatusChanged(String s, int i, Bundle bundle) {}
+                    @Override
+                    public void onProviderEnabled(String s) {}
+                    @Override
+                    public void onProviderDisabled(String s) {}
+                };
+            }else{
+                gps.showSettingsAlert();
+            }
+
+
+        }if (view.getId() == stopButton.getId()){
+            gps.stopUsingGPS();
+            bstatus.setChecked(false);
         }
     }
 
@@ -140,7 +161,9 @@ public class MainActivity extends ActionBarActivity{
             // writing response to log
             Toast.makeText(getApplicationContext(), "Enviando", Toast.LENGTH_LONG).show();
             logError(response.toString());
-            Log.d("Http Response:", response.toString());
+            count++;
+            txtCount.setText(Integer.toString(count));
+            //Log.d("Http Response:", response.toString());
         } catch (ClientProtocolException e) {
             // writing exception to log
             e.printStackTrace();
