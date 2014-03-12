@@ -5,10 +5,8 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.os.StrictMode;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -17,6 +15,7 @@ import android.view.ViewGroup;
 import android.os.Build;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.Switch;
@@ -32,25 +31,26 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends ActionBarActivity{
 
-    TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror,txtCount;
-    EditText hostService,editpass;
+    TextView txtlat,txtlng,txtalt,txtpre,txtpro,txttiempo,txterror,txtCount,txtUpdates;
+    EditText hostService,pathService;
     RadioButton bstatus;
     Button startButton,stopButton;
-    Switch sgps,snet,shttp;
-    int count = 0;
+    Switch sgps,snet,shttp,slocal;
+    public Long sessionId;
+    int count,countUpdates = 0;
     // GPSTracker class
     GPSTracker gps;
-
-    LocationListener locationListener;
+    String HTTPurl;
+    HttpClient httpclient;
+    HttpPost httppost;
+    HttpResponse response;
 
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
     @Override
@@ -61,8 +61,8 @@ public class MainActivity extends ActionBarActivity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        hostService = (EditText)findViewById(R.id.editText);
-        editpass = (EditText)findViewById(R.id.editText2);
+        hostService = (EditText)findViewById(R.id.editText2);
+        pathService = (EditText)findViewById(R.id.editText);
         txterror = (TextView)findViewById(R.id.error);
         txtlat = (TextView)findViewById(R.id.textView3);
         txtlng = (TextView)findViewById(R.id.textView4);
@@ -70,6 +70,7 @@ public class MainActivity extends ActionBarActivity{
         txtpre = (TextView)findViewById(R.id.textView10);
         txtpro = (TextView)findViewById(R.id.textView12);
         txtCount = (TextView)findViewById(R.id.textView13);
+        txtUpdates = (TextView)findViewById(R.id.textView18);
         txttiempo = (TextView)findViewById(R.id.textView11);
         bstatus = (RadioButton)findViewById(R.id.status);
         startButton = (Button)findViewById(R.id.button);
@@ -77,9 +78,10 @@ public class MainActivity extends ActionBarActivity{
         sgps = (Switch)findViewById(R.id.switch1);
         snet = (Switch)findViewById(R.id.switch2);
         shttp = (Switch)findViewById(R.id.switch3);
+        slocal = (Switch)findViewById(R.id.switch4);
 
-
-
+        stopButton.setEnabled(false);
+        sessionId = System.currentTimeMillis()/1000;
         // create class object
         gps = new GPSTracker(MainActivity.this);
 
@@ -87,14 +89,11 @@ public class MainActivity extends ActionBarActivity{
         snet.setChecked(gps.isNetworkEnabled);
         // check if GPS enabled
         if(gps.canGetLocation()){
-            double latitude = gps.getLatitude();
-            double longitude = gps.getLongitude();
-            setLocationText(latitude,longitude,0,0,"gps",0);
-            // \n is for new line
-            Toast.makeText(getApplicationContext(), "Your Location is - \nLat: " + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
+            setLocationText(gps.getLatitude(),gps.getLongitude(),0,0,"Ultima posicion",0);
         }else{
             gps.showSettingsAlert();
         }
+        HTTPurl = String.valueOf(hostService.getText())+String.valueOf(pathService.getText());
 
 
     }
@@ -102,16 +101,16 @@ public class MainActivity extends ActionBarActivity{
         if (view.getId() == startButton.getId()){
 
             if(gps.canGetLocation()){
-                if(String.valueOf(editpass.getText()).equals("15741")) {
                     bstatus.setChecked(true);
-                    locationListener = new GPSTracker(MainActivity.this) {
+                    startButton.setEnabled(false);
+                    stopButton.setEnabled(true);
+                    gps = new GPSTracker(MainActivity.this) {
                         @Override
                         public void onLocationChanged(Location location) {
                             setLocationText(location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getAccuracy(), location.getProvider(), location.getTime());
                             if (shttp.isChecked())
                                 sendData(location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getAccuracy(), location.getProvider(), location.getTime());
                         }
-
                         @Override
                         public void onStatusChanged(String s, int i, Bundle bundle) {
                         }
@@ -124,15 +123,24 @@ public class MainActivity extends ActionBarActivity{
                         public void onProviderDisabled(String s) {
                         }
                     };
-                }
+
             }else{
                 gps.showSettingsAlert();
             }
-
-
-        }if (view.getId() == stopButton.getId()){
+        }
+        if (view.getId() == stopButton.getId()){
             gps.stopUsingGPS();
             bstatus.setChecked(false);
+            startButton.setEnabled(true);
+            stopButton.setEnabled(false);
+            shttp.setChecked(false);
+        }
+        if (view.getId() == slocal.getId()){
+            if (slocal.isChecked()){
+                logError("local mode on");
+            }else {
+                logError("local mode off");
+            }
         }
     }
 
@@ -143,27 +151,28 @@ public class MainActivity extends ActionBarActivity{
         txtpre.setText(Float.toString(pre));
         txtpro.setText(prov);
         txttiempo.setText(Long.toString(lTime));
+
+        countUpdates++;
+        txtUpdates.setText(Integer.toString(countUpdates));
     }
 
     public void logError(String er) {
-
         txterror.setText(er);
     }
 
     public void sendData(double plat,double plng,double palt,float pre,String prov,long tiempo){
-        // Create a new HttpClient and Post Header
-        BufferedReader in = null;
-        HttpClient httpclient = new DefaultHttpClient();
-        HttpPost httppost = new HttpPost(String.valueOf(hostService.getText()));
         // Add your data
-        List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(6);
+        HttpClient httpclient = new DefaultHttpClient();
+        HttpPost httppost = new HttpPost(HTTPurl);
+
+        List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(7);
         nameValuePairs.add(new BasicNameValuePair("context", "gpsdata"));
         nameValuePairs.add(new BasicNameValuePair("lat", Double.toString(plat)));
         nameValuePairs.add(new BasicNameValuePair("lng", Double.toString(plng)));
         nameValuePairs.add(new BasicNameValuePair("tiempo", Long.toString(tiempo)));
         nameValuePairs.add(new BasicNameValuePair("precision", Float.toString(pre)));
         nameValuePairs.add(new BasicNameValuePair("proveedor", prov ));
-
+        nameValuePairs.add(new BasicNameValuePair("sessionId", Long.toString(sessionId) ));
         // Url Encoding the POST parameters
         try {
             httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
@@ -173,22 +182,20 @@ public class MainActivity extends ActionBarActivity{
         }
         // Making HTTP Request
         try {
-            HttpResponse response = httpclient.execute(httppost);
-
-            // END OF NEW CODE
-
-
+            response = httpclient.execute(httppost);
             // writing response to log
-            Toast.makeText(getApplicationContext(), "Enviando", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getApplicationContext(), "Enviando", Toast.LENGTH_SHORT).show();
             logError(response.toString());
             count++;
             txtCount.setText(Integer.toString(count));
             //Log.d("Http Response:", response.toString());
         } catch (ClientProtocolException e) {
             // writing exception to log
+            logError(e.toString());
             e.printStackTrace();
         } catch (IOException e) {
             // writing exception to log
+            logError(e.toString());
             e.printStackTrace();
         }
     }
@@ -210,9 +217,6 @@ public class MainActivity extends ActionBarActivity{
         }
         return super.onOptionsItemSelected(item);
     }
-    /**
-     * A placeholder fragment containing a simple view.
-     */
     public static class PlaceholderFragment extends Fragment {
         public PlaceholderFragment() {
         }

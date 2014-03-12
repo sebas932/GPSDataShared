@@ -37,7 +37,7 @@ public class GPSTracker extends Service implements LocationListener {
     private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 5; // 10 meters
 
     // The minimum time between updates in milliseconds
-    private static final long MIN_TIME_BW_UPDATES = 1000; // 1 minute
+    private static final long MIN_TIME_BW_UPDATES = 1000; // 1 seg
 
     // Declaring a Location Manager
     protected LocationManager locationManager;
@@ -113,6 +113,7 @@ public class GPSTracker extends Service implements LocationListener {
     public void stopUsingGPS(){
         if(locationManager != null){
             locationManager.removeUpdates(GPSTracker.this);
+            locationManager = null;
         }
     }
 
